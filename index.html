@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="en" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Historical Timeline Explorer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      box-sizing: border-box;
+    }
+    
+    .timeline-line {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 4px;
+      transform: translateY(-50%);
+      z-index: 1;
+    }
+    
+    .timeline-event {
+      position: relative;
+      z-index: 2;
+      transition: transform 0.3s ease;
+    }
+    
+    .timeline-event:hover {
+      transform: translateY(-8px);
+    }
+    
+    .event-dot {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 4px solid;
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+    
+    .timeline-event:hover .event-dot {
+      transform: scale(1.3);
+    }
+    
+    .event-card {
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      margin-top: 20px;
+      min-width: 320px;
+      max-width: 400px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      z-index: 10;
+    }
+    
+    .event-card.active {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(-50%) translateY(10px);
+    }
+    
+    .event-card-arrow {
+      position: absolute;
+      top: -8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-bottom: 8px solid;
+    }
+    
+    .civilization-egyptian { 
+      filter: hue-rotate(30deg);
+    }
+    
+    .civilization-greek { 
+      filter: hue-rotate(180deg);
+    }
+    
+    .civilization-roman { 
+      filter: hue-rotate(330deg);
+    }
+    
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .animate-fade-in {
+      animation: fadeIn 0.6s ease forwards;
+    }
+  </style>
+  <style>@view-transition { navigation: auto; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="h-full">
+  <div id="app" class="w-full h-full overflow-auto" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);">
+   <div style="min-height: 100%; display: flex; flex-direction: column;"><!-- Header -->
+    <header style="padding: 48px 32px 32px; text-align: center;">
+     <h1 id="timeline-title" style="font-size: 48px; font-weight: 800; margin-bottom: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Ancient Civilizations Timeline</h1>
+     <p id="timeline-subtitle" style="font-size: 20px; color: #a0aec0;">Explore the foundations of human history: 3000 BCE - 500 CE</p>
+    </header><!-- Legend -->
+    <div style="padding: 0 32px 32px; display: flex; justify-content: center; gap: 32px; flex-wrap: wrap;">
+     <div style="display: flex; align-items: center; gap: 8px;">
+      <div style="width: 16px; height: 16px; border-radius: 50%; background: #f6ad55;"></div><span style="color: #e2e8f0; font-size: 14px;">Egyptian</span>
+     </div>
+     <div style="display: flex; align-items: center; gap: 8px;">
+      <div style="width: 16px; height: 16px; border-radius: 50%; background: #4299e1;"></div><span style="color: #e2e8f0; font-size: 14px;">Greek</span>
+     </div>
+     <div style="display: flex; align-items: center; gap: 8px;">
+      <div style="width: 16px; height: 16px; border-radius: 50%; background: #f56565;"></div><span style="color: #e2e8f0; font-size: 14px;">Roman</span>
+     </div>
+    </div><!-- Timeline Container -->
+    <div style="flex: 1; padding: 0 64px 64px; position: relative;">
+     <div style="max-width: 1200px; margin: 0 auto;"><!-- Timeline Line -->
+      <div style="position: relative; padding: 80px 0;">
+       <div class="timeline-line" style="background: linear-gradient(90deg, #4a5568 0%, #667eea 50%, #4a5568 100%);"></div><!-- Timeline Events Container -->
+       <div id="timeline-events" style="position: relative; display: flex; justify-content: space-between; align-items: center;"><!-- Events will be dynamically inserted here -->
+       </div>
+      </div>
+     </div>
+    </div><!-- Footer -->
+    <footer style="padding: 32px; text-align: center; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+     <p id="footer-text" style="color: #a0aec0; font-size: 14px;">Click on any event to learn more about this pivotal moment in history</p>
+    </footer>
+   </div>
+  </div>
+  <script>
+    const defaultConfig = {
+      timeline_title: "Ancient Civilizations Timeline",
+      timeline_subtitle: "Explore the foundations of human history: 3000 BCE - 500 CE",
+      footer_text: "Click on any event to learn more about this pivotal moment in history",
+      background_color: "#1a1a2e",
+      accent_color: "#667eea",
+      text_color: "#e2e8f0",
+      egyptian_color: "#f6ad55",
+      greek_color: "#4299e1",
+      roman_color: "#f56565",
+      font_family: "Inter",
+      font_size: 16
+    };
+
+    const timelineData = [
+      {
+        year: "3000 BCE",
+        title: "Egyptian Hieroglyphs",
+        civilization: "egyptian",
+        description: "Ancient Egyptians develop one of the world's first writing systems, using pictographic symbols to record history, religious texts, and administrative information.",
+        impact: "Enabled record-keeping and cultural transmission across generations"
+      },
+      {
+        year: "2560 BCE",
+        title: "Great Pyramid Built",
+        civilization: "egyptian",
+        description: "The Great Pyramid of Giza is constructed as a tomb for Pharaoh Khufu. It remains one of the Seven Wonders of the Ancient World and showcases advanced engineering.",
+        impact: "Demonstrated Egyptian mathematical and architectural prowess"
+      },
+      {
+        year: "776 BCE",
+        title: "First Olympic Games",
+        civilization: "greek",
+        description: "The first recorded Olympic Games are held in Olympia, Greece, establishing a tradition of athletic competition that continues to modern times.",
+        impact: "Created international sporting traditions and promoted peace during games"
+      },
+      {
+        year: "509 BCE",
+        title: "Roman Republic Founded",
+        civilization: "roman",
+        description: "The Roman Republic is established after the overthrow of the Roman monarchy, introducing representative government and the concept of checks and balances.",
+        impact: "Influenced modern democratic governance systems worldwide"
+      },
+      {
+        year: "447 BCE",
+        title: "Parthenon Construction",
+        civilization: "greek",
+        description: "Construction begins on the Parthenon in Athens, dedicated to the goddess Athena. It represents the height of classical Greek architecture and democracy.",
+        impact: "Set architectural standards that influenced Western civilization"
+      },
+      {
+        year: "44 BCE",
+        title: "Caesar Assassinated",
+        civilization: "roman",
+        description: "Julius Caesar is assassinated in the Roman Senate, marking the end of the Roman Republic and the beginning of the Roman Empire under Augustus.",
+        impact: "Transformed Rome from republic to empire, shaping European history"
+      },
+      {
+        year: "27 BCE",
+        title: "Roman Empire Begins",
+        civilization: "roman",
+        description: "Augustus becomes the first Roman Emperor, establishing the Pax Romana - a period of relative peace and stability that lasted over 200 years.",
+        impact: "Created longest period of peace in Mediterranean history"
+      },
+      {
+        year: "476 CE",
+        title: "Fall of Western Rome",
+        civilization: "roman",
+        description: "The Western Roman Empire falls to Germanic tribes, marking the end of ancient Rome and the beginning of the Middle Ages in Europe.",
+        impact: "Ended classical antiquity and reshaped European political landscape"
+      }
+    ];
+
+    let activeCard = null;
+
+    function getCivilizationColor(civilization) {
+      const config = window.elementSdk?.config || defaultConfig;
+      const colors = {
+        egyptian: config.egyptian_color || defaultConfig.egyptian_color,
+        greek: config.greek_color || defaultConfig.greek_color,
+        roman: config.roman_color || defaultConfig.roman_color
+      };
+      return colors[civilization] || config.accent_color || defaultConfig.accent_color;
+    }
+
+    function createTimelineEvents() {
+      const container = document.getElementById('timeline-events');
+      container.innerHTML = '';
+
+      timelineData.forEach((event, index) => {
+        const eventWrapper = document.createElement('div');
+        eventWrapper.className = 'timeline-event';
+        eventWrapper.style.cssText = 'display: flex; flex-direction: column; align-items: center; flex: 1; animation-delay: ' + (index * 0.1) + 's;';
+        eventWrapper.classList.add('animate-fade-in');
+
+        const color = getCivilizationColor(event.civilization);
+
+        // Event dot
+        const dot = document.createElement('div');
+        dot.className = 'event-dot';
+        dot.style.cssText = `background: ${color}; border-color: ${color}; box-shadow: 0 0 20px ${color}80;`;
+
+        // Year label
+        const year = document.createElement('div');
+        year.textContent = event.year;
+        year.style.cssText = `margin-top: 12px; font-size: 14px; font-weight: 600; color: ${color};`;
+
+        // Title label
+        const title = document.createElement('div');
+        title.textContent = event.title;
+        title.style.cssText = 'margin-top: 8px; font-size: 12px; text-align: center; color: #cbd5e0; max-width: 120px; line-height: 1.4;';
+
+        // Event card (hidden by default)
+        const card = document.createElement('div');
+        card.className = 'event-card';
+        card.style.cssText = `background: #2d3748; border: 2px solid ${color}; border-radius: 12px; padding: 24px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);`;
+
+        const cardArrow = document.createElement('div');
+        cardArrow.className = 'event-card-arrow';
+        cardArrow.style.borderBottomColor = color;
+
+        const cardTitle = document.createElement('h3');
+        cardTitle.textContent = event.title;
+        cardTitle.style.cssText = `color: ${color}; font-size: 20px; font-weight: 700; margin-bottom: 8px;`;
+
+        const cardYear = document.createElement('div');
+        cardYear.textContent = event.year;
+        cardYear.style.cssText = 'color: #a0aec0; font-size: 14px; margin-bottom: 16px; font-weight: 600;';
+
+        const cardDescription = document.createElement('p');
+        cardDescription.textContent = event.description;
+        cardDescription.style.cssText = 'color: #e2e8f0; font-size: 14px; line-height: 1.6; margin-bottom: 16px;';
+
+        const cardImpact = document.createElement('div');
+        cardImpact.style.cssText = `background: ${color}20; border-left: 3px solid ${color}; padding: 12px; border-radius: 4px;`;
+        
+        const impactLabel = document.createElement('div');
+        impactLabel.textContent = 'Historical Impact:';
+        impactLabel.style.cssText = `color: ${color}; font-size: 12px; font-weight: 700; margin-bottom: 6px; text-transform: uppercase;`;
+        
+        const impactText = document.createElement('div');
+        impactText.textContent = event.impact;
+        impactText.style.cssText = 'color: #e2e8f0; font-size: 13px; line-height: 1.5;';
+
+        cardImpact.appendChild(impactLabel);
+        cardImpact.appendChild(impactText);
+
+        card.appendChild(cardArrow);
+        card.appendChild(cardTitle);
+        card.appendChild(cardYear);
+        card.appendChild(cardDescription);
+        card.appendChild(cardImpact);
+
+        eventWrapper.appendChild(dot);
+        eventWrapper.appendChild(year);
+        eventWrapper.appendChild(title);
+        eventWrapper.appendChild(card);
+
+        // Click handler
+        dot.addEventListener('click', () => {
+          if (activeCard === card) {
+            card.classList.remove('active');
+            activeCard = null;
+          } else {
+            if (activeCard) {
+              activeCard.classList.remove('active');
+            }
+            card.classList.add('active');
+            activeCard = card;
+          }
+        });
+
+        container.appendChild(eventWrapper);
+      });
+    }
+
+    async function onConfigChange(config) {
+      const baseSize = config.font_size || defaultConfig.font_size;
+      const customFont = config.font_family || defaultConfig.font_family;
+      const baseFontStack = 'system-ui, -apple-system, sans-serif';
+
+      // Update text content
+      document.getElementById('timeline-title').textContent = config.timeline_title || defaultConfig.timeline_title;
+      document.getElementById('timeline-subtitle').textContent = config.timeline_subtitle || defaultConfig.timeline_subtitle;
+      document.getElementById('footer-text').textContent = config.footer_text || defaultConfig.footer_text;
+
+      // Update colors
+      const appDiv = document.getElementById('app');
+      appDiv.style.background = `linear-gradient(135deg, ${config.background_color || defaultConfig.background_color} 0%, #16213e 100%)`;
+
+      const titleElement = document.getElementById('timeline-title');
+      titleElement.style.background = `linear-gradient(135deg, ${config.accent_color || defaultConfig.accent_color} 0%, #764ba2 100%)`;
+      titleElement.style.webkitBackgroundClip = 'text';
+      titleElement.style.webkitTextFillColor = 'transparent';
+      titleElement.style.backgroundClip = 'text';
+
+      // Update fonts
+      document.getElementById('timeline-title').style.fontFamily = `${customFont}, ${baseFontStack}`;
+      document.getElementById('timeline-subtitle').style.fontFamily = `${customFont}, ${baseFontStack}`;
+      document.getElementById('footer-text').style.fontFamily = `${customFont}, ${baseFontStack}`;
+
+      // Update font sizes
+      document.getElementById('timeline-title').style.fontSize = `${baseSize * 3}px`;
+      document.getElementById('timeline-subtitle').style.fontSize = `${baseSize * 1.25}px`;
+      document.getElementById('footer-text').style.fontSize = `${baseSize * 0.875}px`;
+
+      // Recreate timeline events with new colors
+      createTimelineEvents();
+    }
+
+    // Initialize
+    if (window.elementSdk) {
+      window.elementSdk.init({
+        defaultConfig,
+        onConfigChange,
+        mapToCapabilities: (config) => ({
+          recolorables: [
+            {
+              get: () => config.background_color || defaultConfig.background_color,
+              set: (value) => {
+                config.background_color = value;
+                window.elementSdk.setConfig({ background_color: value });
+              }
+            },
+            {
+              get: () => config.accent_color || defaultConfig.accent_color,
+              set: (value) => {
+                config.accent_color = value;
+                window.elementSdk.setConfig({ accent_color: value });
+              }
+            },
+            {
+              get: () => config.text_color || defaultConfig.text_color,
+              set: (value) => {
+                config.text_color = value;
+                window.elementSdk.setConfig({ text_color: value });
+              }
+            },
+            {
+              get: () => config.egyptian_color || defaultConfig.egyptian_color,
+              set: (value) => {
+                config.egyptian_color = value;
+                window.elementSdk.setConfig({ egyptian_color: value });
+              }
+            },
+            {
+              get: () => config.greek_color || defaultConfig.greek_color,
+              set: (value) => {
+                config.greek_color = value;
+                window.elementSdk.setConfig({ greek_color: value });
+              }
+            }
+          ],
+          borderables: [],
+          fontEditable: {
+            get: () => config.font_family || defaultConfig.font_family,
+            set: (value) => {
+              config.font_family = value;
+              window.elementSdk.setConfig({ font_family: value });
+            }
+          },
+          fontSizeable: {
+            get: () => config.font_size || defaultConfig.font_size,
+            set: (value) => {
+              config.font_size = value;
+              window.elementSdk.setConfig({ font_size: value });
+            }
+          }
+        }),
+        mapToEditPanelValues: (config) => new Map([
+          ["timeline_title", config.timeline_title || defaultConfig.timeline_title],
+          ["timeline_subtitle", config.timeline_subtitle || defaultConfig.timeline_subtitle],
+          ["footer_text", config.footer_text || defaultConfig.footer_text]
+        ])
+      });
+    }
+
+    // Initial render
+    createTimelineEvents();
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9afad780a1e59374',t:'MTc2NjAyMDg2OS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
