@@ -3,6 +3,8 @@
 ## Overview
 A beautifully designed, interactive timeline visualization for exploring ancient civilizations (3000 BCE - 500 CE). This responsive web application allows users to explore key historical events from Egyptian, Greek, and Roman civilizations through an engaging visual interface.
 
+## [Live Demo](https://elagiaunified.github.io/timeline-chart/) 
+
 ## Features
 
 ### Interactive Timeline
